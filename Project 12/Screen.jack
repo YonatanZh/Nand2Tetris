@@ -1,0 +1,198 @@
+// This file is part of nand2tetris, as taught in The Hebrew University, and
+// was written by Aviv Yaish. It is an extension to the specifications given
+// [here](https://www.nand2tetris.org) (Shimon Schocken and Noam Nisan, 2017),
+// as allowed by the Creative Common Attribution-NonCommercial-ShareAlike 3.0
+// Unported [License](https://creativecommons.org/licenses/by-nc-sa/3.0/).
+
+/**
+ * A library of functions for displaying graphics on the screen.
+ * The Hack physical screen consists of 256 rows (indexed 0..255, top to bottom)
+ * of 512 pixels each (indexed 0..511, left to right). The top left pixel on 
+ * the screen is indexed (0,0).
+ */
+class Screen {
+    static boolean currentColor;
+    static Array twoToThe;
+        /** Initializes the Screen. */
+        function void init() {
+            let currentColor = true;
+            let twoToThe = Array.new(16);
+            let twoToThe[0] = 1;
+            let twoToThe[1] = 2;
+            let twoToThe[2] = 4;
+            let twoToThe[3] = 8;
+            let twoToThe[4] = 16;
+            let twoToThe[5] = 32;
+            let twoToThe[6] = 64;
+            let twoToThe[7] = 128;
+            let twoToThe[8] = 256;
+            let twoToThe[9] = 512;
+            let twoToThe[10] = 1024;
+            let twoToThe[11] = 2048;
+            let twoToThe[12] = 4096;
+            let twoToThe[13] = 8192;
+            let twoToThe[14] = 16384;
+            let twoToThe[15] = 16384 + 16384;
+            return;
+        }
+
+        /** Erases the entire screen. */
+        function void clearScreen() {
+            var boolean prev;
+            let prev = currentColor;
+            let currentColor = false;
+            do Screen.drawRectangle(0, 0, 511, 255);
+            let currentColor = prev;
+            return;
+        }
+
+        /** Sets the current color, to be used for all subsequent drawXXX commands.
+         *    Black is represented by true, white by false. */
+        function void setColor(boolean b) {
+            let currentColor = b;
+            return;
+        }
+
+        /** Draws the (x,y) pixel, using the current color. */
+        function void drawPixel(int x, int y) {
+            // For this function, you will need to calculate the value x%16.
+            // It should be calculated quickly without using multiplication or
+            // division, using exactly one basic math/logical operation.
+            // In addition, calculating 16384 + y * 32 + x/16 should not use
+            // division or multiplication.
+            // Pseudocode:
+            // 1. Compute the RAM address where the (x,y) pixel is
+            //    represented: 16384 + (32*y) + (x/16).
+            // 2. Use Memory.peek to get the 16-bit value of this address
+            // 3. Use some bitwise operation to set (only) the bit that corresponds
+            //    to the pixel to the current color.
+            // 4. Use Memory.poke to write the modified 16-bit value to the RAM
+            // address.
+            var int address, value;
+            let address = 16384 + (#(#(#(#x)))) + (^(^(^(^(^y)))));
+            let value = Memory.peek(address);
+            if (currentColor) {
+                let value = value | twoToThe[x & 15];
+            } else {
+                let value = value & (~(twoToThe[x & 15]));
+            }
+            let value = Memory.poke(address, value);
+            return;
+        }
+
+        /** Draws a line from pixel (x1,y1) to pixel (x2,y2), using the current color. */
+        function void drawLine(int x1, int y1, int x2, int y2) {
+            // The case where x1 != x2 and y1 != y2 should be implemented without
+            // multiplication or division.
+            // Pseudocode:
+            // 1. let x = x1, y = y1, a = 0, b = 0, diff = 0
+            // 2. Compute dx and dy
+            // 3. while ((a <= dx) and (b <= dy))
+            // 4.   do drawPixel(x+a, y+b)
+            // 5.   if (diff < 0) { let a=a+1, diff=diff+dy }
+            // 6.   else          { let b=b+1, diff=diff-dx }
+            //
+            // The case where y1 == y2 can be implemented efficiently by
+            // trying to draw as many pixels as possible in a single assignment,
+            // similarly to Fill in project 4.
+            var int x, y, a, b, diff, dx, dy;
+            var boolean isNegative;
+            if (x1 = x2) {
+                let y = Math.min(y1, y2);
+                let b = Math.max(y1 + 1, y2 + 1);
+                while (y < b) {
+                    do Screen.drawPixel(x1, y);
+                    let y = y + 1;
+                }
+                return;
+            }
+            if (y1 = y2) {
+                let x = Math.min(x1, x2);
+                let b = Math.max(x1 + 1, x2 + 1);
+                while (x < b) {
+                    if (((x & 15) > 0) | (x > b - 16)) {
+                        // x % 16 > 0 - we can't fill the entire "word"
+                        do Screen.drawPixel(x, y1);
+                        let x = x + 1;
+                    } else {
+                        let a = 16384 + (#(#(#(#x))) + (^(^(^(^(^y1))))));
+                        if (currentColor) {
+                            do Memory.poke(a, 0);
+                        } else {
+                            do Memory.poke(a, -1);
+                        }
+                        let x = x + 16;
+                    }
+                }
+                return;
+            }
+
+            let a = 0;
+            let b = 0;
+            let diff = 0;
+            if (x2 < x1) {
+                let x = x1;
+                let x1 = x2;
+                let x2 = x;
+                let y = y1;
+                let y1 = y2;
+                let y2 = y;
+            }
+            let x = x1;
+            let y = y1;
+
+            let dx = x2 - x1;
+            let dy = y2 - y1;
+
+            if (dy < 0) {
+                let isNegative = true;
+                let dy = -dy;
+            }
+            while ((~(a > dx)) & (~(b > dy))) {
+                if (isNegative) {
+                    do Screen.drawPixel(x + a, y - b);
+                } else {
+                    do Screen.drawPixel(x + a, y + b);
+                }
+                if (diff < 0) {
+                    let a = a + 1;
+                    let diff = diff + dy;
+                } else {
+                    let b = b + 1;
+                    let diff = diff - dx;
+                }
+            }
+            return;
+        }
+
+        /** Draws a filled rectangle whose top left corner is (x1, y1)
+         * and bottom right corner is (x2,y2), using the current color. */
+        function void drawRectangle(int x1, int y1, int x2, int y2) {
+            var int y, b;
+            let y = Math.min(y1, y2);
+            let b = Math.max(y1+1, y2+1);
+            while (y < b) {
+                do Screen.drawLine(x1, y, x2, y);
+                let y = y + 1;
+            }
+            return;
+        }
+
+        /** Draws a filled circle of radius r<=181 around (x,y), using the current color. */
+        function void drawCircle(int x, int y, int r) {
+            var int dy, halfWidth;
+            let dy = -r;
+            while (dy < (r+1)) {
+                let halfWidth = Math.sqrt((r * r) - (dy * dy));
+                do Screen.drawLine(x - halfWidth, y + dy, x + halfWidth, y + dy);
+                let dy = dy + 1;
+            }
+            return;
+            // This can be implemented efficiently by drawing multiple lines at
+            // each iteration. You can use multiplication and sqrt.
+            // Pseudocode:
+            // 1. for (dy = -r ... r)
+            // 2.   let halfWidth = sqrt(r*r - dy*dy)
+            // 3.   do drawLine(x-halfWidth, y+dy, x+halfWidth, y+dy)
+        }
+}
